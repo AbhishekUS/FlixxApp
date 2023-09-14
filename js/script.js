@@ -1,6 +1,16 @@
 //https://api.themoviedb.org/3/movie/550?api_key=770b2653f578e802a91d5987d1848a47
 const global = {
   currentPage: window.location.pathname,
+  search: {
+    term: "",
+    type: "",
+    page: 1,
+    totalPages: 1,
+  },
+  api: {
+    apiKey: "770b2653f578e802a91d5987d1848a47",
+    apiURL: "https://api.themoviedb.org/3/",
+  },
 };
 
 async function displayPopularMovies() {
@@ -231,6 +241,64 @@ async function displayShowDetails() {
   document.querySelector("#show-details").appendChild(div);
 }
 
+// Search movie/shows
+async function search() {
+  const queryString = window.location.search;
+  console.log(queryString);
+  const urlParams = new URLSearchParams(queryString);
+  global.search.type = urlParams.get("type");
+  global.search.term = urlParams.get("search-term");
+  if (global.search.term !== "" && global.search.term !== null) {
+    const { results, totalPages, page } = await searchAPIData();
+    if (results.length === 0) {
+      showAlert("No results found");
+      return;
+    }
+    displaySearchResults(results);
+    document.querySelector("#search-term").value = "";
+  } else {
+    showAlert("Please enter a seach term", "error");
+  }
+}
+
+function displaySearchResults(results) {
+  results.forEach((result) => {
+    const div = document.createElement("div");
+    div.classList.add("card");
+    div.innerHTML = `
+    <a href="${global.search.type}-details.html?id=${result.id}">
+      ${
+        result.poster_path
+          ? `
+        <img
+        src="https://image.tmdb.org/t/p/w500/${result.poster_path}"
+        class="card-img-top"
+        alt="${global.search.type === "movie" ? result.title : result.name}"
+      />`
+          : `
+      <img
+        src="images/no-image.jpg"
+        class="card-img-top"
+        alt="${global.search.type === "movie" ? result.title : result.name}"
+      />`
+      }
+    </a>
+    <div class="card-body">
+            <h5 class="card-title">${
+              global.search.type === "movie" ? result.title : result.name
+            }</h5>
+            <p class="card-text">
+              <small class="text-muted">Release: ${
+                global.search.type === "movie"
+                  ? result.release_date
+                  : result.first_air_date
+              }</small>
+            </p>
+          </div>`;
+    document.querySelector("#search-results").appendChild(div);
+  });
+}
+
 //Dispaly slider miovies
 async function displaySlider() {
   const { results } = await fetchDataFromApi("movie/now_playing");
@@ -278,8 +346,8 @@ function initSwiper() {
 }
 //Fetch data from tmdb api
 async function fetchDataFromApi(endpoint) {
-  const API_KEY = "770b2653f578e802a91d5987d1848a47";
-  const API_URL = "https://api.themoviedb.org/3/";
+  const API_KEY = global.api.apiKey;
+  const API_URL = global.api.apiURL;
   showSpinner();
   const response = await fetch(
     `${API_URL}${endpoint}?api_key=${API_KEY}&language=en-US`
@@ -289,6 +357,18 @@ async function fetchDataFromApi(endpoint) {
   return data;
 }
 
+//Make request to search
+async function searchAPIData() {
+  const API_KEY = global.api.apiKey;
+  const API_URL = global.api.apiURL;
+  showSpinner();
+  const response = await fetch(
+    `${API_URL}search/${global.search.type}?api_key=${API_KEY}&language=en-US&query=${global.search.term}`
+  );
+  const data = await response.json();
+  hideSpinner();
+  return data;
+}
 function showSpinner() {
   document.querySelector(".spinner").classList.add("show");
 }
@@ -307,6 +387,14 @@ function highlightlink() {
   });
 }
 
+//Show alert
+function showAlert(message, className = "error") {
+  const alertEl = document.createElement("div");
+  alertEl.classList.add("alert", className);
+  alertEl.appendChild(document.createTextNode(message));
+  document.querySelector("#alert").appendChild(alertEl);
+  setTimeout(() => alertEl.remove(), 5000);
+}
 function addCommas(number) {
   return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
@@ -331,6 +419,7 @@ function init() {
       console.log("TV details");
       break;
     case "/search.html":
+      search();
       console.log("Search details");
       break;
   }
